@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Progressive Loading Globe with Country Polygons</title>
+  <style>
+    body {
+      margin: 0;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+  <script type="importmap">
+    { 
+      "imports": {
+        "three": "//unpkg.com/three/build/three.module.js",
+        "three/addons/": "//unpkg.com/three/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    window.THREE = THREE;
+  </script>
+  <script src="//unpkg.com/three-globe" defer></script>
+</head>
+<body>
+  <div id="globeViz"></div>
+
+  <script type="module">
+    import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+
+    const CHUNK_SIZE = 500; // Adjust based on performance
+
+    // Web Worker to handle data processing
+    const dataWorker = new Worker('dataProcessor.js');
+    
+    let Globe, scene, camera, renderer, tbControls;
+    let gData = []; // Holds all the loaded data
+
+    // Function to initialize the Three.js scene and Globe
+    function initGlobe(countries) {
+      // Create a new globe visualization
+      Globe = new ThreeGlobe()
+        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+        .heatmapsData([gData])
+        .heatmapPointLat('lat')
+        .heatmapPointLng('lng')
+        .heatmapPointWeight('weight')
+        .heatmapTopAltitude(0)
+        .heatmapsTransitionDuration(1000)
+        .heatmapColorSaturation(7.5)
+        // Adding the polygons for the countries
+        .polygonsData(countries.features.filter(d => d.properties.ISO_A2 !== 'AQ')) // Exclude Antarctica
+        .polygonCapColor(() => 'rgba(143, 129, 111, 1)')
+        .polygonSideColor(() => 'rgba(0, 0, 0, 1)')
+        .polygonStrokeColor(() => '#111')
+        .polygonAltitude(() => 0.015);  // Keep polygons close to the globe surface
+
+      // Setup renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.getElementById('globeViz').appendChild(renderer.domElement);
+
+      // Setup scene
+      scene = new THREE.Scene();
+      scene.add(Globe);
+      scene.add(new THREE.AmbientLight(0xbbbbbb));
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      directionalLight.position.set(0, 0, 1);
+      scene.add(directionalLight);
+
+      // Setup camera
+      camera = new THREE.PerspectiveCamera();
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      camera.position.z = 500;
+
+      // Add camera controls
+      tbControls = new TrackballControls(camera, renderer.domElement);
+      tbControls.minDistance = 101;
+      tbControls.rotateSpeed = 5;
+      tbControls.zoomSpeed = 0.8;
+      tbControls.dynamicDampingFactor = 0.15;
+
+      // Kick-off renderer
+      (function animate() {
+        tbControls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      })();
+    }
+
+    // Progressive loading function
+    function loadDataInChunks(data) {
+      let start = 0;
+      const end = data.length;
+
+      function loadChunk() {
+        if (start >= end) {
+          console.log('All data loaded');
+          return;
+        }
+
+        const chunkEnd = Math.min(start + CHUNK_SIZE, end);
+
+        // Send chunk to web worker for processing
+        dataWorker.postMessage({ data, start, end: chunkEnd });
+        start = chunkEnd;
+      }
+
+      // Listen for processed data from the worker
+      dataWorker.onmessage = function(event) {
+        const processedData = event.data;
+        gData.push(...processedData); // Add processed data to global gData array
+        Globe.heatmapsData([gData]); // Update globe heatmap with new data
+
+        console.log(`Loaded chunk, total points: ${gData.length}`);
+
+        // Load the next chunk
+        loadChunk();
+      };
+
+      // Start loading the first chunk
+      loadChunk();
+    }
+
+    // Load the GeoJSON file for country polygons and chlorophyll data JSON file
+    Promise.all([
+      fetch('./ne_110m_admin_0_countries.geojson').then(res => res.json()),  // Fetch the country polygons
+      fetch('chlorophyll_data.json').then(res => res.json())  // Fetch the chlorophyll data
+    ])
+    .then(([countries, chlorophyllData]) => {
+      console.log('Total data points:', chlorophyllData.chlorophyll_data.length);
+      
+      // Initialize the globe visualization with country polygons
+      initGlobe(countries);
+
+      // Start progressively loading the chlorophyll data in chunks
+      loadDataInChunks(chlorophyllData.chlorophyll_data);
+    })
+    .catch(error => console.error('Error loading data:', error));
+  </script>
+</body>
+</html>
