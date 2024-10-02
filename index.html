@@ -11,6 +11,34 @@
     canvas {
       display: block;
     }
+    /* Colorbar container */
+    #colorbar {
+      position: absolute;
+      top: 50px;
+      right: 20px;
+      width: 30px;
+      height: 300px;
+      background: linear-gradient(to top, #0000ff, #00ff00, #ffff00, #ff0000);
+      border: 1px solid #000;
+    }
+
+    /* Colorbar labels */
+    #colorbar-labels {
+      position: absolute;
+      top: 50px;
+      right: 55px;
+      height: 300px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-family: Arial, sans-serif;
+      color: #ffffff;
+    }
+
+    #colorbar-labels div {
+      font-size: 12px;
+      text-align: right;
+    }
   </style>
   <script type="importmap">
     { 
@@ -29,21 +57,28 @@
 <body>
   <div id="globeViz"></div>
 
+  <!-- Colorbar and labels -->
+  <div id="colorbar"></div>
+  <div id="colorbar-labels">
+    <div id="maxValue">High</div>
+    <div id="midValue">Medium</div>
+    <div id="minValue">Low</div>
+  </div>
+
   <script type="module">
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
     const CHUNK_SIZE = 2000; // Adjust based on performance
-
-    // Web Worker to handle data processing
-    const dataWorker = new Worker('dataProcessor.js');
-    
-    let Globe, scene, camera, renderer, tbControls;
+    let minValue = Infinity;
+    let maxValue = -Infinity;
     let gData = []; // Holds all the loaded data
+    let Globe;  // Declare the Globe variable here
+
+    const dataWorker = new Worker('dataProcessor.js');
 
     // Function to initialize the Three.js scene and Globe
     function initGlobe(countries) {
-      // Create a new globe visualization
-      Globe = new ThreeGlobe()
+      Globe = new ThreeGlobe()  // Initialize Globe here so it's accessible globally
         .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
         .heatmapsData([gData])
         .heatmapPointLat('lat')
@@ -52,45 +87,47 @@
         .heatmapTopAltitude(0)
         .heatmapsTransitionDuration(1000)
         .heatmapColorSaturation(7.5)
-        // Adding the polygons for the countries
-        .polygonsData(countries.features.filter(d => d.properties.ISO_A2 !== 'AQ')) // Exclude Antarctica
+        .polygonsData(countries.features.filter(d => d.properties.ISO_A2 !== 'AQ'))
         .polygonCapColor(() => 'rgba(143, 129, 111, 1)')
         .polygonSideColor(() => 'rgba(0, 0, 0, 1)')
         .polygonStrokeColor(() => '#111')
         .polygonAltitude(() => 0.015);  // Keep polygons close to the globe surface
 
-      // Setup renderer
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.getElementById('globeViz').appendChild(renderer.domElement);
 
-      // Setup scene
-      scene = new THREE.Scene();
+      const scene = new THREE.Scene();
       scene.add(Globe);
       scene.add(new THREE.AmbientLight(0xbbbbbb));
       const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
       directionalLight.position.set(0, 0, 1);
       scene.add(directionalLight);
 
-      // Setup camera
-      camera = new THREE.PerspectiveCamera();
+      const camera = new THREE.PerspectiveCamera();
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       camera.position.z = 500;
 
-      // Add camera controls
-      tbControls = new TrackballControls(camera, renderer.domElement);
+      const tbControls = new TrackballControls(camera, renderer.domElement);
       tbControls.minDistance = 101;
       tbControls.rotateSpeed = 5;
       tbControls.zoomSpeed = 0.8;
       tbControls.dynamicDampingFactor = 0.15;
 
-      // Kick-off renderer
       (function animate() {
         tbControls.update();
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
       })();
+    }
+
+    // Function to update colorbar labels dynamically
+    function updateColorBarLabels() {
+      const midValue = (minValue + maxValue) / 2;
+      document.getElementById('maxValue').innerText = maxValue.toFixed(2);
+      document.getElementById('midValue').innerText = midValue.toFixed(2);
+      document.getElementById('minValue').innerText = minValue.toFixed(2);
     }
 
     // Progressive loading function
@@ -105,26 +142,26 @@
         }
 
         const chunkEnd = Math.min(start + CHUNK_SIZE, end);
-
-        // Send chunk to web worker for processing
         dataWorker.postMessage({ data, start, end: chunkEnd });
         start = chunkEnd;
       }
 
-      // Listen for processed data from the worker
       dataWorker.onmessage = function(event) {
         const processedData = event.data;
         gData.push(...processedData); // Add processed data to global gData array
+
+        // Update min and max values dynamically
+        processedData.forEach(item => {
+          if (item.weight < minValue) minValue = item.weight;
+          if (item.weight > maxValue) maxValue = item.weight;
+        });
+
+        updateColorBarLabels();  // Update color bar labels with new min/max values
         Globe.heatmapsData([gData]); // Update globe heatmap with new data
-
-        console.log(`Loaded chunk, total points: ${gData.length}`);
-
-        // Load the next chunk
-        loadChunk();
+        loadChunk(); // Load the next chunk
       };
 
-      // Start loading the first chunk
-      loadChunk();
+      loadChunk(); // Start loading the first chunk
     }
 
     // Load the GeoJSON file for country polygons and chlorophyll data JSON file
@@ -133,13 +170,8 @@
       fetch('chlorophyll_data.json').then(res => res.json())  // Fetch the chlorophyll data
     ])
     .then(([countries, chlorophyllData]) => {
-      console.log('Total data points:', chlorophyllData.chlorophyll_data.length);
-      
-      // Initialize the globe visualization with country polygons
-      initGlobe(countries);
-
-      // Start progressively loading the chlorophyll data in chunks
-      loadDataInChunks(chlorophyllData.chlorophyll_data);
+      initGlobe(countries);  // Initialize the globe visualization with country polygons
+      loadDataInChunks(chlorophyllData.chlorophyll_data);  // Start progressively loading the chlorophyll data
     })
     .catch(error => console.error('Error loading data:', error));
   </script>
