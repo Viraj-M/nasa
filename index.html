@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,9 +9,11 @@
     body {
       margin: 0;
     }
+
     canvas {
       display: block;
     }
+
     /* Colorbar container */
     #colorbar {
       position: absolute;
@@ -48,6 +51,7 @@
       text-align: center;
       color: #ffffff;
     }
+
     #month-slider {
       width: 80%;
     }
@@ -66,6 +70,7 @@
   </script>
   <script src="//unpkg.com/three-globe" defer></script>
 </head>
+
 <body>
   <div id="globeViz"></div>
 
@@ -86,6 +91,37 @@
   <script type="module">
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
+    let globalMinValue = Infinity;
+    let globalMaxValue = -Infinity;
+
+    // Function to calculate global min and max values across all months' data
+    function calculateGlobalMinMax() {
+      const monthFolders = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+      const dataPromises = monthFolders.map(month => fetch(`data/${month}/chlorophyll_data.json`).then(res => res.json()).catch(() => null));
+
+      Promise.all(dataPromises).then(monthData => {
+        monthData.forEach(data => {
+          if (data && data.chlorophyll_data) {
+            data.chlorophyll_data.forEach(entry => {
+              if (entry.value < globalMinValue) globalMinValue = entry.value;
+              if (entry.value > globalMaxValue) globalMaxValue = entry.value;
+            });
+          }
+        });
+
+        console.log('Global Min:', globalMinValue, 'Global Max:', globalMaxValue);
+
+        // Normalize the color scale using global min and max values
+        updateGlobeWithGlobalScale();
+      });
+    }
+
+    // Function to update the globe with normalized data based on global min/max
+    function updateGlobeWithGlobalScale() {
+      // Normalize data for the currently loaded month using global min/max
+      Globe.heatmapPointWeight(d => (d.weight - globalMinValue) / (globalMaxValue - globalMinValue));
+    }
+
     const CHUNK_SIZE = 20000; // Adjust based on performance
     let minValue = Infinity;
     let maxValue = -Infinity;
@@ -102,7 +138,7 @@
         .heatmapsData([gData])
         .heatmapPointLat('lat')
         .heatmapPointLng('lng')
-        .heatmapPointWeight('weight')
+        .heatmapPointWeight(d => (d.weight - 0.002639) / (84.602081 - 0.002639))
         .heatmapTopAltitude(0)
         .heatmapsTransitionDuration(1000)
         .heatmapColorSaturation(7.5)
@@ -165,7 +201,7 @@
         start = chunkEnd;
       }
 
-      dataWorker.onmessage = function(event) {
+      dataWorker.onmessage = function (event) {
         const processedData = event.data;
         gData.push(...processedData); // Add processed data to global gData array
 
@@ -213,7 +249,7 @@
         loadMonthData(0, countries);
 
         // Add event listener to month slider
-        document.getElementById('month-slider').addEventListener('input', function(event) {
+        document.getElementById('month-slider').addEventListener('input', function (event) {
           const monthIndex = event.target.value - 1;  // Slider is 1-based, but array is 0-based
           loadMonthData(monthIndex, countries);
         });
@@ -221,4 +257,5 @@
       .catch(error => console.error('Error loading data:', error));
   </script>
 </body>
+
 </html>
