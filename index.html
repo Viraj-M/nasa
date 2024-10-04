@@ -106,7 +106,7 @@
               if (entry.value < globalMinValue) globalMinValue = entry.value;
               if (entry.value > globalMaxValue) globalMaxValue = entry.value;
               document.getElementById('maxValue').innerText = globalMaxValue;
-              document.getElementById('midValue').innerText = (globalMaxValue + globalMinValue)/2
+              document.getElementById('midValue').innerText = (globalMaxValue + globalMinValue) / 2
               document.getElementById('minValue').innerText = globalMinValue;
             });
           }
@@ -191,7 +191,7 @@
         }
 
         const chunkEnd = Math.min(start + CHUNK_SIZE, end);
-        dataWorker.postMessage({ data, start, end: chunkEnd });
+        dataWorker.postMessage({ data, start, end, chunkEnd });
         start = chunkEnd;
       }
 
@@ -228,7 +228,7 @@
     fetch('./ne_110m_admin_0_countries.geojson')
       .then(res => res.json())
       .then(countries => {
-        initGlobe(countries); 
+        initGlobe(countries);
         calculateGlobalMinMax(); // Initialize the globe visualization with country polygons
 
         // Load initial data for January (default)
@@ -241,7 +241,82 @@
         });
       })
       .catch(error => console.error('Error loading data:', error));
+
+    const fileUpload = document.getElementById('file-upload');
+    const datasetSelection = document.getElementById('dataset-selection');
+    let uploadedFiles = [];
+
+    // Handle file uploads
+    fileUpload.addEventListener('change', (event) => {
+      const files = event.target.files;
+      if (files.length > 0) {
+        uploadedFiles = [];
+        Array.from(files).forEach(file => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = JSON.parse(e.target.result);
+            uploadedFiles.push(content);
+            const option = document.createElement('option');
+            option.value = uploadedFiles.length - 1;
+            option.textContent = file.name; // Use the file name for better identification
+            datasetSelection.appendChild(option);
+          };
+          reader.readAsText(file);
+        });
+      }
+    });
+
+    // Handle dataset selection
+    datasetSelection.addEventListener('change', (event) => {
+      const selectedDataset = event.target.value;
+      if (selectedDataset === 'default') {
+        loadDefaultData();
+      } else {
+        const selectedData = uploadedFiles[selectedDataset];
+        loadDataToGlobe(selectedData);
+      }
+    });
+
+    function loadDefaultData() {
+      // Logic to load the default chlorophyll data
+      console.log('Loading default data...');
+
+    }
+
+    function loadDataToGlobe(data) {
+      console.log('Loading uploaded data:', data);
+
+      // Dynamically update the timeline (assuming the data contains months info)
+      const timelineRange = data.length || 1;  // Default to 12 if data does not specify length
+
+      const monthSlider = document.getElementById("month-slider");
+      monthSlider.max = timelineRange;
+      monthSlider.value = 1; // Reset slider to start
+      loadDataInChunks(data.chlorophyll_data)
+
+
+
+      // Your function to load the data onto the globe visualization here
+      // Call globe library functions to update the view
+    }
+
   </script>
+
+  <!-- File Upload for uploading JSON datasets -->
+  <div id="file-upload-container" style="position: absolute; top: 20px; left: 20px; color: #ffffff;">
+    <label for="file-upload">Upload JSON Dataset(s):</label>
+    <input type="file" id="file-upload" multiple accept=".json" />
+  </div>
+
+  <!-- Dropdown to switch between datasets -->
+  <div id="dataset-selection-container" style="position: absolute; top: 70px; left: 20px; color: #ffffff;">
+    <label for="dataset-selection">Select Dataset:</label>
+    <select id="dataset-selection">
+      <option value="default">Chlorophyll Data (Default)</option>
+    </select>
+  </div>
+
 </body>
+
 
 </html>
