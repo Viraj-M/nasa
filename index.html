@@ -55,6 +55,14 @@
     #month-slider {
       width: 80%;
     }
+
+    /* Dropdown style */
+    #data-type-container {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: #ffffff;
+    }
   </style>
   <script type="importmap">
     { 
@@ -69,7 +77,6 @@
     window.THREE = THREE;
   </script>
   <script src="//unpkg.com/topojson-client"></script>
-
   <script src="//unpkg.com/three-globe" defer></script>
 </head>
 
@@ -90,32 +97,40 @@
     <input type="range" id="month-slider" min="1" max="12" value="1" step="1">
   </div>
 
+  <!-- Data type dropdown -->
+  <div id="data-type-container">
+    <label for="data-type">Select Data Type:</label>
+    <select id="data-type">
+      <option value="Chlorophyll">Chlorophyll</option>
+      <option value="Sea Surface Temperature">Sea Surface Temperature</option>
+    </select>
+  </div>
+
   <script type="module">
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
-    // Function to calculate global min and max values across all months' data
-
-    let Globe;  // Declare the Globe variable here
+    let globe, scene, camera, renderer, tbControls;
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-    // Function to initialize the Three.js scene and Globe
-    function initGlobe(landTopo, imageUrl) {
-      Globe = new ThreeGlobe()  // Initialize Globe here so it's accessible globally
-        .globeImageUrl(imageUrl)
+    // Initialize the Three.js scene and globe (once)
+    function initGlobe(landTopo, initialImageUrl) {
+      // Create a Globe instance
+      globe = new ThreeGlobe()
+        .globeImageUrl(initialImageUrl)
         .polygonsData(topojson.feature(landTopo, landTopo.objects.land).features)
         .polygonCapColor(() => 'rgba(143, 129, 111, 1)')
         .polygonSideColor(() => 'rgba(0, 0, 0, 1)')
         .polygonStrokeColor(() => '#111')
         .polygonAltitude(() => 0.015);  // Keep polygons close to the globe surface
 
-
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      // Set up renderer, camera, and scene
+      renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.getElementById('globeViz').appendChild(renderer.domElement);
 
-      const scene = new THREE.Scene();
-      scene.add(Globe);
+      scene = new THREE.Scene();
+      scene.add(globe);
       scene.add(new THREE.AmbientLight(0xbbbbbb));
       let directionalLightPoses = [[0, 0, 1], [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, -1]];
       let directionalLights = []
@@ -125,33 +140,32 @@
         scene.add(directionalLights[directionalLightPoses.indexOf(element)]);
       }
 
-
-      const camera = new THREE.PerspectiveCamera();
+      camera = new THREE.PerspectiveCamera();
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       camera.position.z = 500;
 
-      const tbControls = new TrackballControls(camera, renderer.domElement);
+      tbControls = new TrackballControls(camera, renderer.domElement);
       tbControls.minDistance = 101;
       tbControls.rotateSpeed = 5;
       tbControls.zoomSpeed = 0.8;
       tbControls.dynamicDampingFactor = 0.15;
 
-      (function animate() {
-        tbControls.update();
-        renderer.render(scene, camera);
-        requestAnimationFrame(animate);
-      })();
+      animate();
     }
 
+    // Animation loop
+    function animate() {
+      tbControls.update();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
 
-    // Function to load data for the selected month
-    function loadMonthData(monthIndex, landTopo) {
-      const monthName = monthNames[monthIndex];
-      document.getElementById('selected-month').textContent = monthName;
-      initGlobe(landTopo, "data/" + monthName + "_Chlorophyll.png");
-      console.log(monthName);
-      console.log("data/" + monthName + "_Chlorophyll.png")
+    // Function to update the texture for the selected month
+    function updateTexture(imageUrl) {
+      const newTexture = new THREE.TextureLoader().load(imageUrl);
+      globe.globeMaterial().map = newTexture;  // Update the globe's material map with the new texture
+      globe.globeMaterial().map.needsUpdate = true;  // Ensure the texture updates
     }
 
     // Load the GeoJSON file for country polygons
@@ -159,18 +173,33 @@
       .then(res => res.json())
       .then(landTopo => {
         // Load initial data for January (default)
-        loadMonthData(0, landTopo);
+        const initialMonth = 0;  // January
+        const initialImageUrl = "data/"+monthNames[initialMonth]+"_Chlorophyll.png";
+        initGlobe(landTopo, initialImageUrl);
+
         // Add event listener to month slider
         document.getElementById('month-slider').addEventListener('input', function (event) {
           const monthIndex = event.target.value - 1;  // Slider is 1-based, but array is 0-based
-          loadMonthData(monthIndex, landTopo);
+          const monthName = monthNames[monthIndex];
+          document.getElementById('selected-month').textContent = monthName;
+          const selectedDataType = document.getElementById('data-type').value;
+          const newImageUrl = "data/"+monthName+"_"+selectedDataType+".png";
+          updateTexture(newImageUrl);
+        });
+
+        // Add event listener to data type dropdown
+        document.getElementById('data-type').addEventListener('change', function (event) {
+          const selectedDataType = event.target.value;
+          console.log('Selected data type:', selectedDataType);
+          const monthIndex = document.getElementById('month-slider').value - 1;
+          const monthName = monthNames[monthIndex];
+          const newImageUrl = "data/"+monthName+"_"+selectedDataType+".png";
+          updateTexture(newImageUrl);
         });
       })
       .catch(error => console.error('Error loading data:', error));
 
   </script>
-
 </body>
-
 
 </html>
