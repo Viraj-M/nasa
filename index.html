@@ -77,7 +77,7 @@
     window.THREE = THREE;
   </script>
   <script src="//unpkg.com/topojson-client"></script>
-  <script src="//unpkg.com/three-globe" defer></script>
+
 </head>
 
 <body>
@@ -109,32 +109,44 @@
   <script type="module">
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
-    let globe, scene, camera, renderer, tbControls;
+    let scene, camera, renderer, tbControls, globeGroup;
+    let layers = [];
+    let layerMaterials = [];
+    let layerGlobes = [];
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const dataTypes = ["Chlorophyll", "Sea Surface Temperature"]
+    const dataTypes = ["Chlorophyll", "Sea Surface Temperature"];
     const dataRange = [[0.05, 5], [2, 32]];
-    // Initialize the Three.js scene and globe (once)
-    function initGlobe(landTopo, initialImageUrl) {
-      // Create a Globe instance
-      globe = new ThreeGlobe()
-        .globeImageUrl(initialImageUrl)
-        .polygonsData(topojson.feature(landTopo, landTopo.objects.land).features)
-        .polygonCapColor(() => 'rgba(143, 129, 111, 1)')
-        .polygonSideColor(() => 'rgba(0, 0, 0, 1)')
-        .polygonStrokeColor(() => '#111')
-        .polygonAltitude(() => 0.015);  // Keep polygons close to the globe surface
 
-      // Set up renderer, camera, and scene
+    // Initialize the Three.js scene and globe (once)
+    function initGlobe(LayerURLs) {
+      // Create a new group to hold all layers
+      globeGroup = new THREE.Group();
+
+      // Create the base globe geometry (only once)
+      const globeGeometry = new THREE.SphereGeometry(100, 75, 75);
+
+      for (const element of LayerURLs) {
+
+        let n = LayerURLs.indexOf(element)
+        layers[n] = new THREE.TextureLoader().load(element);
+        layerMaterials[n] = new THREE.MeshBasicMaterial({ map: layers[n], transparent: true });
+        layerGlobes[n] = new THREE.Mesh(globeGeometry, layerMaterials[n]);
+
+        globeGroup.add(layerGlobes[n]);
+      }
+
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.getElementById('globeViz').appendChild(renderer.domElement);
 
       scene = new THREE.Scene();
-      scene.add(globe);
+      scene.add(globeGroup);
+
       scene.add(new THREE.AmbientLight(0xbbbbbb));
+
       let directionalLightPoses = [[0, 0, 1], [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, -1]];
-      let directionalLights = []
+      let directionalLights = [];
       for (const element of directionalLightPoses) {
         directionalLights[directionalLightPoses.indexOf(element)] = new THREE.DirectionalLight(0xffffff, 1);
         directionalLights[directionalLightPoses.indexOf(element)].position.set(element[0], element[1], element[2]);
@@ -162,52 +174,56 @@
       requestAnimationFrame(animate);
     }
 
-    // Function to update the texture for the selected month
-    function updateTexture(imageUrl) {
-      const newTexture = new THREE.TextureLoader().load(imageUrl);
-      globe.globeMaterial().map = newTexture;  // Update the globe's material map with the new texture
-      globe.globeMaterial().map.needsUpdate = true;  // Ensure the texture updates
+    function updateTexture(layerURLs) {
+
+      for (const element of globeGroup.children){
+        let n = globeGroup.children.indexOf(element);
+        element.material.map = new THREE.TextureLoader().load(layerURLs[n]);
+        element.material.map.needsUpdate = true;
+      }
     }
+
 
     function updateColorBarLabels(minValue, maxValue) {
       document.getElementById('maxValue').innerText = maxValue;
-      document.getElementById('midValue').innerText = (maxValue + minValue)/2;
+      document.getElementById('midValue').innerText = (maxValue + minValue) / 2;
       document.getElementById('minValue').innerText = minValue;
     }
 
     // Load the GeoJSON file for country polygons
-    fetch('//unpkg.com/world-atlas/land-110m.json')
-      .then(res => res.json())
-      .then(landTopo => {
-        // Load initial data for January (default)
-        const initialMonth = 0;  // January
-        const initialImageUrl = "data/"+monthNames[initialMonth]+"_Chlorophyll.png";
-        initGlobe(landTopo, initialImageUrl);
-        updateColorBarLabels(dataRange[0][0], dataRange[0][1]);
+    document.addEventListener("DOMContentLoaded", function () {
+      const initialMonth = 0; // January
+      const Layer1Url = `data/${monthNames[initialMonth]}_Chlorophyll.png`; // Data layer
+      const Layer2Url = "Land.png"; // Base land texture
+      const Layer3Url = "Blank.png"; // Country borders or other transparent layer
 
-        // Add event listener to month slider
-        document.getElementById('month-slider').addEventListener('input', function (event) {
-          const monthIndex = event.target.value - 1;  // Slider is 1-based, but array is 0-based
-          const monthName = monthNames[monthIndex];
-          document.getElementById('selected-month').textContent = monthName;
-          const selectedDataType = document.getElementById('data-type').value;
-          const newImageUrl = "data/"+monthName+"_"+selectedDataType+".png";
-          updateTexture(newImageUrl);
-          updateColorBarLabels(dataRange[dataTypes.indexOf(selectedDataType)][0], dataRange[dataTypes.indexOf(selectedDataType)][1]);
-        });
+      // Initialize the globe with textures
+      initGlobe([Layer1Url, Layer2Url, Layer3Url]);
+      updateColorBarLabels(dataRange[0][0], dataRange[0][1]);
 
-        // Add event listener to data type dropdown
-        document.getElementById('data-type').addEventListener('change', function (event) {
-          const selectedDataType = event.target.value;
-          console.log('Selected data type:', selectedDataType);
-          const monthIndex = document.getElementById('month-slider').value - 1;
-          const monthName = monthNames[monthIndex];
-          const newImageUrl = "data/"+monthName+"_"+selectedDataType+".png";
-          updateTexture(newImageUrl);
-          updateColorBarLabels(dataRange[dataTypes.indexOf(selectedDataType)][0], dataRange[dataTypes.indexOf(selectedDataType)][1]);
-        });
-      })
-      .catch(error => console.error('Error loading data:', error));
+      // Add event listener to month slider
+      document.getElementById('month-slider').addEventListener('input', function (event) {
+        const monthIndex = event.target.value - 1;  // Slider is 1-based, but array is 0-based
+        const monthName = monthNames[monthIndex];
+        document.getElementById('selected-month').textContent = monthName;
+        const selectedDataType = document.getElementById('data-type').value;
+        const newImageUrl = `data/${monthName}_${selectedDataType}.png`;
+        updateTexture([newImageUrl, "Land.png", "Blank.png"]);
+        updateColorBarLabels(dataRange[dataTypes.indexOf(selectedDataType)][0], dataRange[dataTypes.indexOf(selectedDataType)][1]);
+      });
+
+      // Add event listener to data type dropdown
+      document.getElementById('data-type').addEventListener('change', function (event) {
+        const selectedDataType = event.target.value;
+        console.log('Selected data type:', selectedDataType);
+        const monthIndex = document.getElementById('month-slider').value - 1;
+        const monthName = monthNames[monthIndex];
+        const newImageUrl = `data/${monthName}_${selectedDataType}.png`;
+        updateTexture([newImageUrl, "Land.png", "Blank.png"]);
+        updateColorBarLabels(dataRange[dataTypes.indexOf(selectedDataType)][0], dataRange[dataTypes.indexOf(selectedDataType)][1]);
+      });
+    });
+
 
   </script>
 </body>
