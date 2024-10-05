@@ -175,11 +175,29 @@
     }
 
     function updateTexture(layerURLs) {
+      // If more URLs are provided than current layers, add new layers
+      if (layerURLs.length > globeGroup.children.length) {
+        const globeGeometry = globeGroup.children[0].geometry;  // Reuse the same geometry for new layers
+        for (let i = globeGroup.children.length; i < layerURLs.length; i++) {
+          const newLayerTexture = new THREE.TextureLoader().load(layerURLs[i]);
+          const newLayerMaterial = new THREE.MeshBasicMaterial({ map: newLayerTexture, transparent: true });
+          const newLayerGlobe = new THREE.Mesh(globeGeometry, newLayerMaterial);
+          globeGroup.add(newLayerGlobe);
+        }
+      }
 
-      for (const element of globeGroup.children){
-        let n = globeGroup.children.indexOf(element);
-        element.material.map = new THREE.TextureLoader().load(layerURLs[n]);
-        element.material.map.needsUpdate = true;
+      // If fewer URLs are provided than current layers, remove extra layers
+      if (layerURLs.length < globeGroup.children.length) {
+        for (let i = globeGroup.children.length - 1; i >= layerURLs.length; i--) {
+          globeGroup.remove(globeGroup.children[i]);
+        }
+      }
+
+      // Update the textures for the layers
+      for (let i = 0; i < layerURLs.length; i++) {
+        const layerTexture = new THREE.TextureLoader().load(layerURLs[i]);
+        globeGroup.children[i].material.map = layerTexture;
+        globeGroup.children[i].material.map.needsUpdate = true;
       }
     }
 
