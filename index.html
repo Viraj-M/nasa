@@ -112,7 +112,8 @@
     let globe, scene, camera, renderer, tbControls;
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
+    const dataTypes = ["Chlorophyll", "Sea Surface Temperature"]
+    const dataRange = [[0.05, 5], [2, 32]];
     // Initialize the Three.js scene and globe (once)
     function initGlobe(landTopo, initialImageUrl) {
       // Create a Globe instance
@@ -168,6 +169,12 @@
       globe.globeMaterial().map.needsUpdate = true;  // Ensure the texture updates
     }
 
+    function updateColorBarLabels(minValue, maxValue) {
+      document.getElementById('maxValue').innerText = maxValue;
+      document.getElementById('midValue').innerText = (maxValue + minValue)/2;
+      document.getElementById('minValue').innerText = minValue;
+    }
+
     // Load the GeoJSON file for country polygons
     fetch('//unpkg.com/world-atlas/land-110m.json')
       .then(res => res.json())
@@ -176,6 +183,7 @@
         const initialMonth = 0;  // January
         const initialImageUrl = "data/"+monthNames[initialMonth]+"_Chlorophyll.png";
         initGlobe(landTopo, initialImageUrl);
+        updateColorBarLabels(dataRange[0][0], dataRange[0][1]);
 
         // Add event listener to month slider
         document.getElementById('month-slider').addEventListener('input', function (event) {
@@ -185,6 +193,7 @@
           const selectedDataType = document.getElementById('data-type').value;
           const newImageUrl = "data/"+monthName+"_"+selectedDataType+".png";
           updateTexture(newImageUrl);
+          updateColorBarLabels(dataRange[dataTypes.indexOf(selectedDataType)][0], dataRange[dataTypes.indexOf(selectedDataType)][1]);
         });
 
         // Add event listener to data type dropdown
@@ -195,6 +204,7 @@
           const monthName = monthNames[monthIndex];
           const newImageUrl = "data/"+monthName+"_"+selectedDataType+".png";
           updateTexture(newImageUrl);
+          updateColorBarLabels(dataRange[dataTypes.indexOf(selectedDataType)][0], dataRange[dataTypes.indexOf(selectedDataType)][1]);
         });
       })
       .catch(error => console.error('Error loading data:', error));
