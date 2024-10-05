@@ -91,65 +91,22 @@
   <script type="module">
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
-    let globalMinValue = Infinity;
-    let globalMaxValue = -Infinity;
-
     // Function to calculate global min and max values across all months' data
-    function calculateGlobalMinMax() {
-      const monthFolders = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-      const dataPromises = monthFolders.map(month => fetch(`data/${month}/chlorophyll_data.json`).then(res => res.json()).catch(() => null));
 
-      Promise.all(dataPromises).then(monthData => {
-        monthData.forEach(data => {
-          if (data && data.chlorophyll_data) {
-            data.chlorophyll_data.forEach(entry => {
-              if (entry.value < globalMinValue) globalMinValue = entry.value;
-              if (entry.value > globalMaxValue) globalMaxValue = entry.value;
-              document.getElementById('maxValue').innerText = globalMaxValue;
-              document.getElementById('midValue').innerText = (globalMaxValue + globalMinValue) / 2
-              document.getElementById('minValue').innerText = globalMinValue;
-            });
-          }
-        });
-
-        console.log('Global Min:', globalMinValue, 'Global Max:', globalMaxValue);
-
-        // Normalize the color scale using global min and max values
-        updateGlobeWithGlobalScale();
-      });
-    }
-
-    // Function to update the globe with normalized data based on global min/max
-    function updateGlobeWithGlobalScale() {
-      // Normalize data for the currently loaded month using global min/max
-      Globe.heatmapPointWeight(d => (d.weight - globalMinValue) / (globalMaxValue - globalMinValue));
-    }
-
-    const CHUNK_SIZE = 20000; // Adjust based on performance
-    let minValue = Infinity;
-    let maxValue = -Infinity;
-    let gData = []; // Holds all the loaded data
     let Globe;  // Declare the Globe variable here
 
-    const dataWorker = new Worker('dataProcessor.js');
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
     // Function to initialize the Three.js scene and Globe
-    function initGlobe(countries) {
+    function initGlobe(countries, imageUrl) {
       Globe = new ThreeGlobe()  // Initialize Globe here so it's accessible globally
-        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-        .heatmapsData([gData])
-        .heatmapPointLat('lat')
-        .heatmapPointLng('lng')
-        .heatmapPointWeight(d => (d.weight - 0.002639) / (84.602081 - 0.002639))
-        .heatmapTopAltitude(0)
-        .heatmapsTransitionDuration(1000)
-        .heatmapColorSaturation(7.5)
+        .globeImageUrl(imageUrl)
         .polygonsData(countries.features.filter(d => d.properties.ISO_A2 !== 'AQ'))
         .polygonCapColor(() => 'rgba(143, 129, 111, 1)')
         .polygonSideColor(() => 'rgba(0, 0, 0, 1)')
         .polygonStrokeColor(() => '#111')
         .polygonAltitude(() => 0.015);  // Keep polygons close to the globe surface
+
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -158,9 +115,14 @@
       const scene = new THREE.Scene();
       scene.add(Globe);
       scene.add(new THREE.AmbientLight(0xbbbbbb));
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
-      directionalLight.position.set(0, 0, 1);
-      scene.add(directionalLight);
+      let directionalLightPoses = [[0, 0, 1], [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, -1]];
+      let directionalLights = []
+      for (const element of directionalLightPoses) {
+        directionalLights[directionalLightPoses.indexOf(element)] = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLights[directionalLightPoses.indexOf(element)].position.set(element[0], element[1], element[2]);
+        scene.add(directionalLights[directionalLightPoses.indexOf(element)]);
+      }
+
 
       const camera = new THREE.PerspectiveCamera();
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -180,60 +142,22 @@
       })();
     }
 
-    function loadDataInChunks(data) {
-      let start = 0;
-      const end = data.length;
-
-      function loadChunk() {
-        if (start >= end) {
-          console.log('All data loaded');
-          return;
-        }
-
-        const chunkEnd = Math.min(start + CHUNK_SIZE, end);
-        dataWorker.postMessage({ data, start, end, chunkEnd });
-        start = chunkEnd;
-      }
-
-      dataWorker.onmessage = function (event) {
-        const processedData = event.data;
-        gData.push(...processedData); // Add processed data to global gData array
-
-        Globe.heatmapsData([gData]); // Update globe heatmap with new data
-        loadChunk(); // Load the next chunk
-      };
-
-      loadChunk(); // Start loading the first chunk
-    }
 
     // Function to load data for the selected month
     function loadMonthData(monthIndex, countries) {
       const monthName = monthNames[monthIndex];
       document.getElementById('selected-month').textContent = monthName;
-
-      // Fetch the chlorophyll data for the selected month from the appropriate folder structure
-      fetch(`data/${monthName}/chlorophyll_data.json`)
-        .then(res => res.json())
-        .then(chlorophyllData => {
-          // Reset global data and min/max values
-          gData = [];
-
-          // Start progressively loading the chlorophyll data for the selected month
-          loadDataInChunks(chlorophyllData.chlorophyll_data);
-        })
-        .catch(error => console.error('Error loading month data:', error));
+      initGlobe(countries, "data/" + monthName + "_Chlorophyll.png");
+      console.log(monthName);
+      console.log("data/" + monthName + "_Chlorophyll.png")
     }
 
     // Load the GeoJSON file for country polygons
     fetch('./ne_110m_admin_0_countries.geojson')
       .then(res => res.json())
       .then(countries => {
-        initGlobe(countries);
-        calculateGlobalMinMax(); // Initialize the globe visualization with country polygons
-
         // Load initial data for January (default)
         loadMonthData(0, countries);
-
         // Add event listener to month slider
         document.getElementById('month-slider').addEventListener('input', function (event) {
           const monthIndex = event.target.value - 1;  // Slider is 1-based, but array is 0-based
@@ -242,79 +166,7 @@
       })
       .catch(error => console.error('Error loading data:', error));
 
-    const fileUpload = document.getElementById('file-upload');
-    const datasetSelection = document.getElementById('dataset-selection');
-    let uploadedFiles = [];
-
-    // Handle file uploads
-    fileUpload.addEventListener('change', (event) => {
-      const files = event.target.files;
-      if (files.length > 0) {
-        uploadedFiles = [];
-        Array.from(files).forEach(file => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const content = JSON.parse(e.target.result);
-            uploadedFiles.push(content);
-            const option = document.createElement('option');
-            option.value = uploadedFiles.length - 1;
-            option.textContent = file.name; // Use the file name for better identification
-            datasetSelection.appendChild(option);
-          };
-          reader.readAsText(file);
-        });
-      }
-    });
-
-    // Handle dataset selection
-    datasetSelection.addEventListener('change', (event) => {
-      const selectedDataset = event.target.value;
-      if (selectedDataset === 'default') {
-        loadDefaultData();
-      } else {
-        const selectedData = uploadedFiles[selectedDataset];
-        loadDataToGlobe(selectedData);
-      }
-    });
-
-    function loadDefaultData() {
-      // Logic to load the default chlorophyll data
-      console.log('Loading default data...');
-
-    }
-
-    function loadDataToGlobe(data) {
-      console.log('Loading uploaded data:', data);
-
-      // Dynamically update the timeline (assuming the data contains months info)
-      const timelineRange = data.length || 1;  // Default to 12 if data does not specify length
-
-      const monthSlider = document.getElementById("month-slider");
-      monthSlider.max = timelineRange;
-      monthSlider.value = 1; // Reset slider to start
-      loadDataInChunks(data.chlorophyll_data)
-
-
-
-      // Your function to load the data onto the globe visualization here
-      // Call globe library functions to update the view
-    }
-
   </script>
-
-  <!-- File Upload for uploading JSON datasets -->
-  <div id="file-upload-container" style="position: absolute; top: 20px; left: 20px; color: #ffffff;">
-    <label for="file-upload">Upload JSON Dataset(s):</label>
-    <input type="file" id="file-upload" multiple accept=".json" />
-  </div>
-
-  <!-- Dropdown to switch between datasets -->
-  <div id="dataset-selection-container" style="position: absolute; top: 70px; left: 20px; color: #ffffff;">
-    <label for="dataset-selection">Select Dataset:</label>
-    <select id="dataset-selection">
-      <option value="default">Chlorophyll Data (Default)</option>
-    </select>
-  </div>
 
 </body>
 
