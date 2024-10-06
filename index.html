@@ -159,6 +159,10 @@
     <input type="file" id="file-upload" accept=".png,.jpg,.jpeg" />
   </div>
 
+  <div id="reset-button-container" style="position: absolute; top: 40%; left: 3%;">
+    <button id="reset-button" style="padding: 5px 10px;">Auto Rotate Globe</button>
+  </div>
+
   <script type="module">
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
@@ -168,6 +172,7 @@
     let layerGlobes = [];
     let transparent = false;
     let SST_Fronts = false;
+    let autoRotate = false;
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const dataTypes = ["Chlorophyll", "Chlorophyll (Aqua-MODIS)", "Particulate Organic Carbon", "Phytoplankton Carbon", "Remote Sensing Reflectance", "Apparent Visible Wavelength", "Sea Surface Temperature"];
@@ -224,6 +229,9 @@
 
     // Animation loop
     function animate() {
+      if (autoRotate) {
+        globeGroup.rotation.y += 0.004;  // Slow rotation speed
+      }
       tbControls.update();
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
@@ -432,6 +440,25 @@
           console.log('No file selected.');
         }
       });
+
+      document.getElementById('reset-button').addEventListener('click', function () {
+
+        if (autoRotate) {
+          autoRotate = false;
+          tbControls.enabled = true;  
+        } else {
+          globeGroup.rotation.set(0, 0, 0);  // Reset rotation
+          globeGroup.position.set(0, 0, 0);  // Reset position (if needed)
+          camera.position.set(0, 0, 500);    // Reset camera position
+          camera.lookAt(0, 0, 0);            // Reset camera to look at the globe
+
+          tbControls.reset();  // Reset trackball controls to default state
+
+          autoRotate = true;  // Enable auto-rotation
+          tbControls.enabled = false;
+        }
+      });
+
 
     });
 
