@@ -21,11 +21,11 @@
       right: 3.5%;
       width: 2%;
       height: 70%;
-      background: linear-gradient(to top, #0000ff, #00ff00, #ffff00, #ff0000);
+      background: linear-gradient(to top, #79005F, #0000ff, #00ffff, #00ff00, #ffff00, #ff8000, #ff0000);
+      /* Default Chlorophyll color bar */
       border: 1px solid #ffffff;
     }
 
-    /* Colorbar labels */
     #colorbar-labels {
       position: absolute;
       top: 10%;
@@ -83,13 +83,19 @@
 <body>
   <div id="globeViz"></div>
 
-  <!-- Colorbar and labels -->
-  <div id="colorbar"></div>
-  <div id="colorbar-labels">
-    <div id="maxValue">High</div>
-    <div id="midValue">Medium</div>
-    <div id="minValue">Low</div>
+  <!-- Colorbar container and labels -->
+  <div id="colorbar"
+    style="position: absolute; top: 10%; right: 3.5%; width: 2%; height: 70%; background: linear-gradient(to top, #0000ff, #00ff00, #ffff00, #ff0000); border: 1px solid #ffffff;">
   </div>
+  <div id="colorbar-labels"
+    style="position: absolute; top: 10%; right: 6.5%; height: 70%; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff;">
+    <div id="label-max">20</div>
+    <div id="label-q3">1</div>
+    <div id="label-median">0.2</div>
+    <div id="label-q1">0.05</div>
+    <div id="label-min">0.01</div>
+  </div>
+
 
   <!-- Month slider -->
   <div id="month-slider-container">
@@ -102,14 +108,19 @@
     <label for="data-type">Select Data Type:</label>
     <select id="data-type">
       <option value="Chlorophyll">Chlorophyll</option>
-      <option value="Sea Surface Temperature">Sea Surface Temperature</option>
+      <option value="Sea Surface Temperature">Sea Surface Temperature (SST)</option>
     </select>
   </div>
 
   <!-- Checkbox for toggling a feature -->
   <div id="checkbox-container" style="position: absolute; top: 60px; left: 20px; color: #ffffff;">
-    <label for="globe-feature-checkbox">Make data layer transparet?</label>
-    <input type="checkbox" id="globe-feature-checkbox">
+    <label for="Transparency_Checkbox">Make data layer transparent?</label>
+    <input type="checkbox" id="Transparency_Checkbox">
+  </div>
+
+  <div id="checkbox-container" style="position: absolute; top: 100px; left: 20px; color: #ffffff;">
+    <label for="fronts_checkbox">Add SST fronts? (Indian Peninsula)</label>
+    <input type="checkbox" id="fronts_checkbox">
   </div>
 
 
@@ -121,6 +132,7 @@
     let layerMaterials = [];
     let layerGlobes = [];
     let transparent = false;
+    let SST_Fronts = false;
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const dataTypes = ["Chlorophyll", "Sea Surface Temperature"];
@@ -168,7 +180,7 @@
 
       tbControls = new TrackballControls(camera, renderer.domElement);
       tbControls.minDistance = 101;
-      tbControls.rotateSpeed = 5;
+      tbControls.rotateSpeed = 7;
       tbControls.zoomSpeed = 0.8;
       tbControls.dynamicDampingFactor = 0.15;
 
@@ -209,19 +221,12 @@
       }
     }
 
-
-    function updateColorBarLabels(minValue, maxValue) {
-      document.getElementById('maxValue').innerText = maxValue;
-      document.getElementById('midValue').innerText = (maxValue + minValue) / 2;
-      document.getElementById('minValue').innerText = minValue;
-    }
-
     // Load the GeoJSON file for country polygons
     document.addEventListener("DOMContentLoaded", function () {
 
       // Initialize the globe with textures
-      initGlobe(["Earth Map 4k.png", "data/January_Chlorophyll.png", "Land.png"]);
-      updateColorBarLabels(dataRange[0][0], dataRange[0][1]);
+      initGlobe(["Earth Map 4k.png", "data/January_Chlorophyll.png", "Land.png", "TestFronts.png"]);
+      updateColorBar("Chlorophyll");
 
       // Add event listener to month slider
       document.getElementById('month-slider').addEventListener('input', function (event) {
@@ -232,8 +237,45 @@
         const selectedDataType = document.getElementById('data-type').value;
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        updateTexture(["Earth Map 4k.png", newImageUrl, "Land.png"]);
+        const  allURLs= transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        if (SST_Fronts){
+          allURLs.push("Fronts/"+monthName+".png");
+        }
+        updateTexture(allURLs);
       });
+
+
+      function updateColorBar(dataset) {
+        const colorbar = document.getElementById('colorbar');
+        const labelMin = document.getElementById('label-min');
+        const labelQ1 = document.getElementById('label-q1');
+        const labelMedian = document.getElementById('label-median');
+        const labelQ3 = document.getElementById('label-q3');
+        const labelMax = document.getElementById('label-max');
+
+        if (dataset === 'Chlorophyll') {
+          // Set the color bar to the gradient resembling the chlorophyll scale
+          colorbar.style.background = 'linear-gradient(to top, #79005F, #0000ff, #00ffff, #00ff00, #ffff00, #ff8000, #ff0000)';
+
+          // Update Chlorophyll scale labels
+          labelMin.textContent = "0.01";
+          labelQ1.textContent = "0.1";
+          labelMedian.textContent = "0.5";
+          labelQ3.textContent = "2";
+          labelMax.textContent = "10";
+        } else if (dataset === 'Sea Surface Temperature') {
+          // Set SST color bar gradient
+          colorbar.style.background = 'linear-gradient(to top, #800080, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000, #804000)';
+
+          // Update SST scale labels
+          labelMin.textContent = "-1";
+          labelQ1.textContent = "5";
+          labelMedian.textContent = "20";
+          labelQ3.textContent = "28";
+          labelMax.textContent = "35";
+        }
+      }
+
 
       // Add event listener to data type dropdown
       document.getElementById('data-type').addEventListener('change', function (event) {
@@ -244,11 +286,16 @@
         const monthName = monthNames[monthIndex];
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        updateTexture(["Earth Map 4k.png", newImageUrl, "Land.png"]);
-        updateColorBarLabels(dataRange[dataTypes.indexOf(selectedDataType)][0], dataRange[dataTypes.indexOf(selectedDataType)][1]);
+        const  allURLs= transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        if (SST_Fronts){
+          allURLs.push("Fronts/"+monthName+".png");
+        }
+        updateTexture(allURLs);
+        updateColorBar(selectedDataType);  // Update the color bar based on the dataset
+
       });
 
-      document.getElementById('globe-feature-checkbox').addEventListener('change', function (event) {
+      document.getElementById('Transparency_Checkbox').addEventListener('change', function (event) {
         transparent = event.target.checked; // Returns true or false
         console.log('transparent:', transparent);
 
@@ -257,7 +304,28 @@
         const selectedDataType = document.getElementById('data-type').value;
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        updateTexture(["Earth Map 4k.png", newImageUrl, "Land.png"]);
+        const  allURLs= transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        if (SST_Fronts){
+          allURLs.push("Fronts/"+monthName+".png");
+        }
+
+        updateTexture(allURLs);
+      });
+
+      document.getElementById('fronts_checkbox').addEventListener('change', function (event) {
+        SST_Fronts = event.target.checked; // Returns true or false
+        console.log('fronts_checkbox:', SST_Fronts);
+
+        const monthIndex = document.getElementById('month-slider').value - 1;
+        const monthName = monthNames[monthIndex];
+        const selectedDataType = document.getElementById('data-type').value;
+        const directory = transparent ? 'transparent_data' : 'data';
+        const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
+        const  allURLs= transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        if (SST_Fronts){
+          allURLs.push("Fronts/"+monthName+".png");
+        }
+        updateTexture(allURLs);
       });
     });
 
