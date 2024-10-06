@@ -76,7 +76,6 @@
     import * as THREE from 'three';
     window.THREE = THREE;
   </script>
-  <script src="//unpkg.com/topojson-client"></script>
 
 </head>
 
@@ -123,6 +122,11 @@
     <input type="checkbox" id="fronts_checkbox">
   </div>
 
+  <!-- File upload container and input -->
+  <div id="file-upload-container" style="position: absolute; top: 150px; left: 20px;">
+    <label for="file-upload" style="color: white;">Upload a file:</label>
+    <input type="file" id="file-upload" accept=".png,.jpg,.jpeg" />
+  </div>
 
   <script type="module">
     import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
@@ -225,7 +229,7 @@
     document.addEventListener("DOMContentLoaded", function () {
 
       // Initialize the globe with textures
-      initGlobe(["Earth Map 4k.png", "data/January_Chlorophyll.png", "Land.png", "TestFronts.png"]);
+      initGlobe(["Earth Map 4k.png", "data/January_Chlorophyll.png", "Land.png"]);
       updateColorBar("Chlorophyll");
 
       // Add event listener to month slider
@@ -237,11 +241,12 @@
         const selectedDataType = document.getElementById('data-type').value;
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        const  allURLs= transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
-        if (SST_Fronts){
-          allURLs.push("Fronts/"+monthName+".png");
+        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        if (SST_Fronts) {
+          allURLs.push("Fronts/" + monthName + ".png");
         }
         updateTexture(allURLs);
+        updateColorBar(selectedDataType);  // Update the color bar based on the dataset
       });
 
 
@@ -256,6 +261,7 @@
         if (dataset === 'Chlorophyll') {
           // Set the color bar to the gradient resembling the chlorophyll scale
           colorbar.style.background = 'linear-gradient(to top, #79005F, #0000ff, #00ffff, #00ff00, #ffff00, #ff8000, #ff0000)';
+          colorbar.style.borderColor = '#ffffff';
 
           // Update Chlorophyll scale labels
           labelMin.textContent = "0.01";
@@ -266,6 +272,7 @@
         } else if (dataset === 'Sea Surface Temperature') {
           // Set SST color bar gradient
           colorbar.style.background = 'linear-gradient(to top, #800080, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000, #804000)';
+          colorbar.style.borderColor = '#ffffff';
 
           // Update SST scale labels
           labelMin.textContent = "-1";
@@ -273,6 +280,15 @@
           labelMedian.textContent = "20";
           labelQ3.textContent = "28";
           labelMax.textContent = "35";
+        } else{
+          colorbar.style.background = '#0000';
+          colorbar.style.borderColor = '#0000';
+
+          labelMin.textContent = "";
+          labelQ1.textContent = "";
+          labelMedian.textContent = "";
+          labelQ3.textContent = "";
+          labelMax.textContent = "";
         }
       }
 
@@ -286,9 +302,9 @@
         const monthName = monthNames[monthIndex];
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        const  allURLs= transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
-        if (SST_Fronts){
-          allURLs.push("Fronts/"+monthName+".png");
+        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        if (SST_Fronts) {
+          allURLs.push("Fronts/" + monthName + ".png");
         }
         updateTexture(allURLs);
         updateColorBar(selectedDataType);  // Update the color bar based on the dataset
@@ -304,12 +320,13 @@
         const selectedDataType = document.getElementById('data-type').value;
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        const  allURLs= transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
-        if (SST_Fronts){
-          allURLs.push("Fronts/"+monthName+".png");
+        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        if (SST_Fronts) {
+          allURLs.push("Fronts/" + monthName + ".png");
         }
 
         updateTexture(allURLs);
+        updateColorBar(selectedDataType);  // Update the color bar based on the dataset
       });
 
       document.getElementById('fronts_checkbox').addEventListener('change', function (event) {
@@ -321,12 +338,36 @@
         const selectedDataType = document.getElementById('data-type').value;
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        const  allURLs= transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
-        if (SST_Fronts){
-          allURLs.push("Fronts/"+monthName+".png");
+        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        if (SST_Fronts) {
+          allURLs.push("Fronts/" + monthName + ".png");
         }
         updateTexture(allURLs);
+        updateColorBar(selectedDataType);  // Update the color bar based on the dataset
       });
+
+      document.getElementById('file-upload').addEventListener('change', function (event) {
+        const file = event.target.files[0];  // Get the first file from the file input
+        if (file) {
+          console.log('File selected:', file.name);  // Log the file name to the console
+
+          const reader = new FileReader();
+
+          reader.onload = function (e) {
+            const imageUrl = e.target.result;
+            console.log('Image URL:', imageUrl);
+
+            updateTexture(["Earth Map 4k.png", imageUrl, "Land.png"]);
+            updateColorBar("");
+          };
+
+          // Read the image as a data URL
+          reader.readAsDataURL(file);  // For image files
+        } else {
+          console.log('No file selected.');
+        }
+      });
+
     });
 
 
