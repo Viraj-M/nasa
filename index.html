@@ -106,8 +106,13 @@
   <div id="data-type-container">
     <label for="data-type">Select Data Type:</label>
     <select id="data-type">
-      <option value="Chlorophyll">Chlorophyll</option>
-      <option value="Sea Surface Temperature">Sea Surface Temperature (SST)</option>
+      <option value="Chlorophyll">Chlorophyll (PACE)</option>
+      <option value="Chlorophyll (Aqua-MODIS)">Chlorophyll (Aqua-MODIS)</option>
+      <option value="Particulate Organic Carbon">Particulate Organic Carbon (PACE)</option>
+      <option value="Phytoplankton Carbon">Phytoplankton Carbon (PACE)</option>
+      <option value="Remote Sensing Reflectance">Remote Sensing Reflectance (PACE)</option>
+      <option value="Apparent Visible Wavelength">Apparent Visible Wavelength (PACE)</option>
+      <option value="Sea Surface Temperature">Sea Surface Temperature (SST) (Aqua-MODIS)</option>
     </select>
   </div>
 
@@ -139,8 +144,8 @@
     let SST_Fronts = false;
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const dataTypes = ["Chlorophyll", "Sea Surface Temperature"];
-    const dataRange = [[0.05, 5], [2, 32]];
+    const dataTypes = ["Chlorophyll", "Chlorophyll (Aqua-MODIS)", "Particulate Organic Carbon", "Phytoplankton Carbon", "Remote Sensing Reflectance", "Apparent Visible Wavelength", "Sea Surface Temperature"];
+    const dataLengths = [[4, 9], [1,12], [4, 9], [7,9], [3, 9], [4, 9], [1, 12]]
 
     // Initialize the Three.js scene and globe (once)
     function initGlobe(LayerURLs) {
@@ -225,12 +230,89 @@
       }
     }
 
+    function updateMonthSlider(startMonth, endMonth) {
+  const monthSlider = document.getElementById('month-slider');
+  const selectedMonthLabel = document.getElementById('selected-month');
+  
+  // Convert month inputs to 1-based values (January = 1, February = 2, ..., December = 12)
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  // Set the slider's min and max values
+  monthSlider.min = startMonth;
+  monthSlider.max = endMonth;
+
+  // If the current value of the slider is outside the new range, adjust it to the start month
+  if (parseInt(monthSlider.value) < startMonth || parseInt(monthSlider.value) > endMonth) {
+    monthSlider.value = startMonth;  // Set it to the start month
+  }
+
+  // Update the displayed month label based on the current slider value
+  selectedMonthLabel.textContent = monthNames[monthSlider.value - 1];  // Subtract 1 to account for 0-based index in array
+}
+
+
+
+    function updateColorBar(dataset) {
+      const colorbar = document.getElementById('colorbar');
+      const labelMin = document.getElementById('label-min');
+      const labelQ1 = document.getElementById('label-q1');
+      const labelMedian = document.getElementById('label-median');
+      const labelQ3 = document.getElementById('label-q3');
+      const labelMax = document.getElementById('label-max');
+
+      if (dataset === 'Chlorophyll' || dataset === 'Chlorophyll (Aqua-MODIS)') {
+        // Set the color bar to the gradient resembling the chlorophyll scale
+        colorbar.style.background = 'linear-gradient(to top, #79005F, #0000ff, #00ffff, #00ff00, #ffff00, #ff8000, #ff0000)';
+        colorbar.style.borderColor = '#ffffff';
+
+        // Update Chlorophyll scale labels
+        labelMin.textContent = "0.01";
+        labelQ1.textContent = "0.1";
+        labelMedian.textContent = "0.5";
+        labelQ3.textContent = "2";
+        labelMax.textContent = "10";
+      } else if (dataset === 'Particulate Organic Carbon') {
+        // Set the color bar to the gradient resembling the chlorophyll scale
+        colorbar.style.background = 'linear-gradient(to top, #79005F, #0000ff, #00ffff, #00ff00, #ffff00, #ff8000, #ff0000)';
+        colorbar.style.borderColor = '#ffffff';
+
+        // Update Chlorophyll scale labels
+        labelMin.textContent = "10";
+        labelQ1.textContent = "30";
+        labelMedian.textContent = "100";
+        labelQ3.textContent = "500";
+        labelMax.textContent = "1000";
+      } else if (dataset === 'Sea Surface Temperature') {
+        // Set SST color bar gradient
+        colorbar.style.background = 'linear-gradient(to top, #800080, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000, #804000)';
+        colorbar.style.borderColor = '#ffffff';
+
+        // Update SST scale labels
+        labelMin.textContent = "-1";
+        labelQ1.textContent = "5";
+        labelMedian.textContent = "20";
+        labelQ3.textContent = "28";
+        labelMax.textContent = "35";
+      } else {
+        colorbar.style.background = '#0000';
+        colorbar.style.borderColor = '#0000';
+
+        labelMin.textContent = "";
+        labelQ1.textContent = "";
+        labelMedian.textContent = "";
+        labelQ3.textContent = "";
+        labelMax.textContent = "";
+      }
+    }
+
+
     // Load the GeoJSON file for country polygons
     document.addEventListener("DOMContentLoaded", function () {
 
       // Initialize the globe with textures
-      initGlobe(["Earth Map 4k.png", "data/January_Chlorophyll.png", "Land.png"]);
+      initGlobe(["Earth Map 4k.png", "data/April_Chlorophyll.png", "Land.png"]);
       updateColorBar("Chlorophyll");
+      updateMonthSlider(4, 9);
 
       // Add event listener to month slider
       document.getElementById('month-slider').addEventListener('input', function (event) {
@@ -241,7 +323,7 @@
         const selectedDataType = document.getElementById('data-type').value;
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : [newImageUrl, "Land.png"];
         if (SST_Fronts) {
           allURLs.push("Fronts/" + monthName + ".png");
         }
@@ -249,65 +331,22 @@
         updateColorBar(selectedDataType);  // Update the color bar based on the dataset
       });
 
-
-      function updateColorBar(dataset) {
-        const colorbar = document.getElementById('colorbar');
-        const labelMin = document.getElementById('label-min');
-        const labelQ1 = document.getElementById('label-q1');
-        const labelMedian = document.getElementById('label-median');
-        const labelQ3 = document.getElementById('label-q3');
-        const labelMax = document.getElementById('label-max');
-
-        if (dataset === 'Chlorophyll') {
-          // Set the color bar to the gradient resembling the chlorophyll scale
-          colorbar.style.background = 'linear-gradient(to top, #79005F, #0000ff, #00ffff, #00ff00, #ffff00, #ff8000, #ff0000)';
-          colorbar.style.borderColor = '#ffffff';
-
-          // Update Chlorophyll scale labels
-          labelMin.textContent = "0.01";
-          labelQ1.textContent = "0.1";
-          labelMedian.textContent = "0.5";
-          labelQ3.textContent = "2";
-          labelMax.textContent = "10";
-        } else if (dataset === 'Sea Surface Temperature') {
-          // Set SST color bar gradient
-          colorbar.style.background = 'linear-gradient(to top, #800080, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000, #804000)';
-          colorbar.style.borderColor = '#ffffff';
-
-          // Update SST scale labels
-          labelMin.textContent = "-1";
-          labelQ1.textContent = "5";
-          labelMedian.textContent = "20";
-          labelQ3.textContent = "28";
-          labelMax.textContent = "35";
-        } else{
-          colorbar.style.background = '#0000';
-          colorbar.style.borderColor = '#0000';
-
-          labelMin.textContent = "";
-          labelQ1.textContent = "";
-          labelMedian.textContent = "";
-          labelQ3.textContent = "";
-          labelMax.textContent = "";
-        }
-      }
-
-
       // Add event listener to data type dropdown
       document.getElementById('data-type').addEventListener('change', function (event) {
         const selectedDataType = event.target.value;
         console.log('Selected data type:', selectedDataType);
+        updateMonthSlider(dataLengths[dataTypes.indexOf(selectedDataType)][0], dataLengths[dataTypes.indexOf(selectedDataType)][1])  // Update the color bar based on the dataset
 
         const monthIndex = document.getElementById('month-slider').value - 1;
         const monthName = monthNames[monthIndex];
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : [newImageUrl, "Land.png"];
         if (SST_Fronts) {
           allURLs.push("Fronts/" + monthName + ".png");
         }
         updateTexture(allURLs);
-        updateColorBar(selectedDataType);  // Update the color bar based on the dataset
+        updateColorBar(selectedDataType);
 
       });
 
@@ -320,7 +359,7 @@
         const selectedDataType = document.getElementById('data-type').value;
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : [newImageUrl, "Land.png"];
         if (SST_Fronts) {
           allURLs.push("Fronts/" + monthName + ".png");
         }
@@ -338,7 +377,7 @@
         const selectedDataType = document.getElementById('data-type').value;
         const directory = transparent ? 'transparent_data' : 'data';
         const newImageUrl = `${directory}/${monthName}_${selectedDataType}.png`;
-        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : ["Earth Map 4k.png", newImageUrl, "Land.png"];
+        const allURLs = transparent ? ["Earth Map 4k.png", "Land.png", newImageUrl] : [newImageUrl, "Land.png"];
         if (SST_Fronts) {
           allURLs.push("Fronts/" + monthName + ".png");
         }
