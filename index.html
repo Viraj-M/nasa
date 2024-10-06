@@ -4,8 +4,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Progressive Loading Globe with Country Polygons</title>
+  <title>Data Orbiters Globe</title>
   <style>
+    /* Font import (optional) */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap');
+
+    /* Style for the large centered text */
+    .centered-text {
+      position: absolute;
+      top: 3%;
+      /* Adjust this value to control vertical position */
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 48px;
+      /* Adjust for large text */
+      color: #00f2ff;
+      /* Custom color */
+      font-family: 'Poppins', sans-serif;
+      /* Custom font (optional) */
+      text-align: center;
+      z-index: 1000;
+      /* Ensure the text is on top */
+    }
+
     body {
       margin: 0;
     }
@@ -59,8 +80,8 @@
     /* Dropdown style */
     #data-type-container {
       position: absolute;
-      top: 20px;
-      left: 20px;
+      top: 20%;
+      left: 3%;
       color: #ffffff;
     }
   </style>
@@ -80,6 +101,11 @@
 </head>
 
 <body>
+
+  <div class="centered-text">
+    Data Orbiters
+  </div>
+
   <div id="globeViz"></div>
 
   <!-- Colorbar container and labels -->
@@ -98,7 +124,7 @@
 
   <!-- Month slider -->
   <div id="month-slider-container">
-    <label for="month-slider">Select Month: <span id="selected-month">January</span></label><br>
+    <label for="month-slider">Selected Month: <span id="selected-month">January</span></label><br>
     <input type="range" id="month-slider" min="1" max="12" value="1" step="1">
   </div>
 
@@ -117,18 +143,18 @@
   </div>
 
   <!-- Checkbox for toggling a feature -->
-  <div id="checkbox-container" style="position: absolute; top: 60px; left: 20px; color: #ffffff;">
+  <div id="checkbox-container" style="position: absolute; top: 25%; left: 3%; color: #ffffff;">
     <label for="Transparency_Checkbox">Make data layer transparent?</label>
     <input type="checkbox" id="Transparency_Checkbox">
   </div>
 
-  <div id="checkbox-container" style="position: absolute; top: 100px; left: 20px; color: #ffffff;">
-    <label for="fronts_checkbox">Add SST fronts? (Indian Peninsula)</label>
+  <div id="checkbox-container" style="position: absolute; top: 30%; left: 3%; color: #ffffff;">
+    <label for="fronts_checkbox">Add SST fronts (Indian Peninsula)</label>
     <input type="checkbox" id="fronts_checkbox">
   </div>
 
   <!-- File upload container and input -->
-  <div id="file-upload-container" style="position: absolute; top: 150px; left: 20px;">
+  <div id="file-upload-container" style="position: absolute; top: 35%; left: 3%;">
     <label for="file-upload" style="color: white;">Upload a file:</label>
     <input type="file" id="file-upload" accept=".png,.jpg,.jpeg" />
   </div>
@@ -145,7 +171,7 @@
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const dataTypes = ["Chlorophyll", "Chlorophyll (Aqua-MODIS)", "Particulate Organic Carbon", "Phytoplankton Carbon", "Remote Sensing Reflectance", "Apparent Visible Wavelength", "Sea Surface Temperature"];
-    const dataLengths = [[4, 9], [1,12], [4, 9], [7,9], [3, 9], [4, 9], [1, 12]]
+    const dataLengths = [[4, 9], [1, 12], [4, 9], [7, 9], [3, 9], [4, 9], [1, 12]]
 
     // Initialize the Three.js scene and globe (once)
     function initGlobe(LayerURLs) {
@@ -231,24 +257,24 @@
     }
 
     function updateMonthSlider(startMonth, endMonth) {
-  const monthSlider = document.getElementById('month-slider');
-  const selectedMonthLabel = document.getElementById('selected-month');
-  
-  // Convert month inputs to 1-based values (January = 1, February = 2, ..., December = 12)
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const monthSlider = document.getElementById('month-slider');
+      const selectedMonthLabel = document.getElementById('selected-month');
 
-  // Set the slider's min and max values
-  monthSlider.min = startMonth;
-  monthSlider.max = endMonth;
+      // Convert month inputs to 1-based values (January = 1, February = 2, ..., December = 12)
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-  // If the current value of the slider is outside the new range, adjust it to the start month
-  if (parseInt(monthSlider.value) < startMonth || parseInt(monthSlider.value) > endMonth) {
-    monthSlider.value = startMonth;  // Set it to the start month
-  }
+      // Set the slider's min and max values
+      monthSlider.min = startMonth;
+      monthSlider.max = endMonth;
 
-  // Update the displayed month label based on the current slider value
-  selectedMonthLabel.textContent = monthNames[monthSlider.value - 1];  // Subtract 1 to account for 0-based index in array
-}
+      // If the current value of the slider is outside the new range, adjust it to the start month
+      if (parseInt(monthSlider.value) < startMonth || parseInt(monthSlider.value) > endMonth) {
+        monthSlider.value = startMonth;  // Set it to the start month
+      }
+
+      // Update the displayed month label based on the current slider value
+      selectedMonthLabel.textContent = monthNames[monthSlider.value - 1];  // Subtract 1 to account for 0-based index in array
+    }
 
 
 
