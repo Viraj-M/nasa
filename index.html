@@ -27,6 +27,32 @@
       /* Ensure the text is on top */
     }
 
+    .bottom-link {
+      position: absolute;
+      top: 7.5%;
+      /* Distance from the bottom of the page */
+      left: 3%;
+      /* Centers the text horizontally */
+      text-align: center;
+      font-size: 16px;
+      font-family: Arial, sans-serif;
+      /* Customize font */
+      color: #ffffff;
+      /* Customize color */
+    }
+
+    .bottom-link a {
+      color: #00f2ff;
+      /* Customize link color */
+      text-decoration: none;
+      /* Remove underline */
+    }
+
+    .bottom-link a:hover {
+      text-decoration: underline;
+      /* Add underline on hover */
+    }
+
     body {
       margin: 0;
     }
@@ -161,6 +187,10 @@
 
   <div id="reset-button-container" style="position: absolute; top: 40%; left: 3%;">
     <button id="reset-button" style="padding: 5px 10px;">Auto Rotate Globe</button>
+  </div>
+
+  <div class="bottom-link">
+    <a href="https://github.com/Viraj-M/nasa/tree/main" target="_blank">Visit Project github page for more details!!</a>
   </div>
 
   <script type="module">
@@ -445,7 +475,7 @@
 
         if (autoRotate) {
           autoRotate = false;
-          tbControls.enabled = true;  
+          tbControls.enabled = true;
         } else {
           globeGroup.rotation.set(0, 0, 0);  // Reset rotation
           globeGroup.position.set(0, 0, 0);  // Reset position (if needed)
